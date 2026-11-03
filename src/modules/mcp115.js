@@ -238,8 +238,11 @@ class Mcp115Client {
     for (let p = 1; p <= maxPage; p++) {
       const r = await this.call('get_offline_tasks', { page: p });
       if (!r) break;
-      const arr = Array.isArray(r) ? r : (r.tasks || r.list || []);
-      if (pageCount === null && r.page_count) pageCount = r.page_count;
+      // 115Lite MCP 返回: {"state":true,"data":{"data":{"tasks":[...]}}}
+      // 旧 115-desktop MCP 是 {"tasks":[...]}; 这里两种都兼容
+      const box = (r && r.data && r.data.data) || (r && r.data) || r || {};
+      const arr = Array.isArray(r) ? r : (r.tasks || r.list || box.tasks || box.list || []);
+      if (pageCount === null) pageCount = r.page_count || box.page_count || null;
       if (!arr.length) break;
       tasks.push(...arr);
       if (pageCount && p >= pageCount) break;   // 末页

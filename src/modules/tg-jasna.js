@@ -357,9 +357,33 @@ async function offlineOne(rec, cid, log) {
     db.setTgJasnaOffline(rec.id, 'submitted', '');
     return 'submitted';
   }
+  // 115Lite MCP 的成功返回没有 state/code 字段（形如 {info_hash,...} 或 {state:true,data:{...}}），
+  // 只要带任务标识且无 error 就算提交成功，避免把成功误判成"提交无响应"。
+  const okShape = item.info_hash || item.infoHash || item.task_id || item.task_ids ||
+    (item.data && (item.data.info_hash || item.data.task_id)) || item.ok === true || item.success === true;
+  if (okShape && !item.error) {
+    db.setTgJasnaOffline(rec.id, 'submitted', '');
+    return 'submitted';
+  }
   if (/任务已存在|重复/.test(raw) || /已存在|重复/.test(String(item.error || item.message || ''))) {
     db.setTgJasnaOffline(rec.id, 'exists', '任务已存在(115 里已有该文件)');
     return 'exists';
+  }
+  // 无响应(null)时用离线队列按 info_hash 兜底确认：任务其实已提交成功的情况很常见（批量提交时响应丢失）
+  if (!r) {
+    const hash = (String(rec.ed2k || '').match(/btih:([0-9a-fA-F]+)/i) || [])[1];
+    if (hash) {
+      try {
+        const all = await mcp115.listOfflineTasks();
+        const h = hash.toLowerCase();
+        const hit = (all || []).find((t) => String(t.info_hash || t.url || '').toLowerCase().includes(h));
+        if (hit && !(hit.status === -1 || /失败/.test(String(hit.status_text || '')))) {
+          db.setTgJasnaOffline(rec.id, 'submitted', '115 已确认在下载(提交响应丢失)');
+          log.push(`  ✓ ${rec.code || '-'} 无响应但 115 队列里已有该任务 → 记为已提交`);
+          return 'submitted';
+        }
+      } catch (e) { /* 校验失败则走原判定 */ }
+    }
   }
   const msg = item.error || item.message || (Array.isArray(r) && !r.length ? '接口返回空数组' : '') || mcp115.lastError() || '提交无响应';
   db.setTgJasnaOffline(rec.id, 'failed', String(msg).slice(0, 200));
@@ -386,6 +410,8 @@ async function offlinePending({ ids = null, limit = 20 } = {}) {
     const s = await offlineOne(rec, cid, log);
     stat[s] = (stat[s] || 0) + 1;
     log.push(`  ${s === 'failed' ? '✕' : '✓'} ${rec.code || rec.file_name || rec.id} → ${s}`);
+    // 节奏控制：115 侧连续快速提交会出现"响应丢失"（任务建了但回包空），每条之间留 400ms
+    await new Promise((r) => setTimeout(r, 400));
   }
   log.push(`[Jasna-LTX] 完成: 提交 ${stat.submitted} · 已存在 ${stat.exists} · 失败 ${stat.failed}`);
   if (stat.submitted > 0 || stat.exists > 0) scheduleRename(log);
