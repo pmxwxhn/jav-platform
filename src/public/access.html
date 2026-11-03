@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="deepsea">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>访问验证 · 115影视资源平台</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/assets/style.css">
+<style>
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    background-image:
+      radial-gradient(900px 500px at 80% -10%, rgba(24,95,165,.14), transparent 60%),
+      radial-gradient(700px 400px at 10% 110%, rgba(46,134,209,.10), transparent 60%);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  .gate {
+    width: 100%;
+    max-width: 380px;
+    background: var(--card);
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(24,95,165,.10), 0 24px 60px rgba(24,95,165,.14);
+    padding: 36px 32px 28px;
+    box-sizing: border-box;
+  }
+  .gate-icon {
+    width: 52px; height: 52px; border-radius: 14px;
+    background: var(--gradient);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; margin: 0 auto 18px;
+    box-shadow: 0 6px 18px rgba(24,95,165,.28);
+  }
+  h1 {
+    font-size: 18px; font-weight: 600; text-align: center;
+    margin: 0 0 6px; letter-spacing: .2px;
+  }
+  .sub {
+    font-size: 12.5px; color: var(--muted); text-align: center;
+    margin: 0 0 26px; line-height: 1.6;
+  }
+  label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+  input[type="password"], input[type="text"] {
+    width: 100%; box-sizing: border-box;
+    padding: 12px 14px;
+    font-size: 15px;
+    letter-spacing: 1.5px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--input-bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    font-family: inherit;
+  }
+  input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(24,95,165,.13);
+  }
+  button {
+    width: 100%; margin-top: 18px;
+    padding: 12px;
+    font-size: 14.5px; font-weight: 500;
+    color: #fff; border: none; border-radius: 12px;
+    background: var(--btn-primary);
+    cursor: pointer;
+    transition: transform .1s, box-shadow .15s, background .15s;
+    font-family: inherit;
+    letter-spacing: .5px;
+  }
+  button:hover { background: var(--btn-primary-hover); box-shadow: 0 6px 16px rgba(24,95,165,.28); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .6; cursor: not-allowed; }
+  .err {
+    margin-top: 14px; font-size: 12.5px; color: var(--red-text);
+    background: var(--red-bg); border-radius: 10px;
+    padding: 9px 12px; display: none; line-height: 1.5;
+  }
+  .err.show { display: block; }
+  .foot {
+    margin-top: 24px; padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 11.5px; color: var(--muted);
+    text-align: center; line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+  <div class="gate">
+    <div class="gate-icon">🔒</div>
+    <h1>只读分享访问</h1>
+    <p class="sub">请输入访问口令<br>该链接仅开放「查看」与「导出」</p>
+
+    <form id="f" autocomplete="off">
+      <label for="pw">访问口令</label>
+      <input id="pw" type="password" placeholder="请输入访问口令" autocomplete="current-password" required>
+      <button id="btn" type="submit">进入</button>
+      <div class="err" id="err"></div>
+    </form>
+
+    <div class="foot">
+      访问凭据由分享者提供<br>仅可浏览资源与导出清单，无管理权限
+    </div>
+  </div>
+
+<script>
+(function () {
+  var f = document.getElementById('f');
+  var pw = document.getElementById('pw');
+  var btn = document.getElementById('btn');
+  var err = document.getElementById('err');
+
+  function showErr(msg) {
+    err.textContent = msg;
+    err.className = 'err show';
+  }
+
+  f.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var v = pw.value.trim();
+    if (!v) return;
+    btn.disabled = true;
+    btn.textContent = '验证中…';
+    err.className = 'err';
+    try {
+      var r = await fetch('/api/access/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: v })
+      });
+      var j = await r.json();
+      if (j && j.ok) {
+        btn.textContent = '✓ 验证通过';
+        var q = new URLSearchParams(location.search);
+        var next = q.get('next') || '/';
+        // 只允许站内跳转, 防开放重定向
+        if (next.charAt(0) !== '/' || next.indexOf('//') === 0) next = '/';
+        location.replace(next);
+        return;
+      }
+      showErr((j && j.error) || '验证失败');
+    } catch (ex) {
+      showErr('网络异常，请重试');
+    }
+    btn.disabled = false;
+    btn.textContent = '进入';
+    pw.select();
+  });
+
+  pw.focus();
+})();
+</script>
+</body>
+</html>

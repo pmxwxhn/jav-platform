@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>任务 - 115影视资源自动管理平台</title>
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="logo">🎬 115影视资源自动管理平台</div>
+  <nav>
+    <a href="index.html">仪表盘</a>
+    <a href="config.html">配置</a>
+    <a href="tasks.html" class="active">任务</a>
+    <a href="reports.html">报告</a>
+  </nav>
+</div>
+<div class="main">
+  <div class="card">
+    <h2>运行历史</h2>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>ID</th><th>类型</th><th>板块</th><th>目标日期</th><th>状态</th><th>开始时间</th><th>耗时</th><th>日志</th><th>操作</th></tr></thead>
+        <tbody id="runsAllTbl"></tbody>
+      </table>
+    </div>
+    <div id="runsPager" class="pager"></div>
+  </div>
+
+  <div class="card" id="logCard" style="display:none">
+    <h2>运行日志 <span id="logTitle" style="font-size:13px;color:#7a8a9a"></span></h2>
+    <div class="log-box" id="logBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>影片记录</h2>
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <select id="vBoard" style="padding:8px 12px;border:1px solid #d0dbe6;border-radius:8px">
+        <option value="">全部板块</option>
+        <option value="103">高清中文字幕(103)</option>
+        <option value="36">亚洲无码原创(36)</option>
+      </select>
+      <input type="text" id="vDate" placeholder="日期 YYYY-MM-DD" style="padding:8px 12px;border:1px solid #d0dbe6;border-radius:8px">
+      <button class="btn gray" id="btnQuery">查询</button>
+    </div>
+    <table class="tbl" id="videosTbl">
+      <thead><tr><th>番号</th><th>板块</th><th>评分/人数</th><th>筛选</th><th>115判重</th><th>演员目录</th><th>离线状态</th><th>详情</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="/assets/app.js"></script>
+<script>
+// 运行历史: 复用 app.js 的 loadRunsAll(分页渲染, 默认 5 条/页)
+
+async function showLog(id) {
+  const r = await api('/api/runs/' + id);
+  const card = document.getElementById('logCard');
+  card.style.display = 'block';
+  document.getElementById('logTitle').textContent = `(#${id} ${r.status})`;
+  document.getElementById('logBox').textContent = r.log || '(无日志)';
+  card.scrollIntoView();
+}
+
+async function loadVideos() {
+  const board = document.getElementById('vBoard').value;
+  const date = document.getElementById('vDate').value.trim();
+  let url = '/api/videos?limit=100';
+  if (board) url += '&board=' + board;
+  if (date) url += '&date=' + date;
+  const videos = await api(url);
+  const tbody = document.querySelector('#videosTbl tbody');
+  tbody.innerHTML = videos.map(v => `
+    <tr>
+      <td><b>${v.code}</b></td>
+      <td>${v.board === 103 ? '字幕' : '无码'}</td>
+      <td>${v.score ? v.score.toFixed(2) : '-'} / ${v.votes || 0}人</td>
+      <td>${v.pass ? '<span class="badge ok">通过</span>' : '<span class="badge gray">未通过</span>'}</td>
+      <td>${v.dup_exists ? '<span class="badge warn">已存</span>' : '<span class="badge gray">未存</span>'}</td>
+      <td>${v.dir_name || '<span style="color:#7a8a9a">-</span>'}</td>
+      <td>${badge(v.offline_status)}</td>
+      <td><a href="#" onclick="showVideoDetail(event, ${v.id})">详情</a></td>
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#7a8a9a">无记录(可用上方条件查询)</td></tr>';
+}
+
+async function showVideoDetail(e, id) {
+  e.preventDefault();
+  const videos = await api('/api/videos?limit=1000');
+  const v = videos.find(x => x.id === id);
+  if (!v) return;
+  let txt = `【${v.code}】 ${v.title || ''}\n\n`;
+  txt += `帖子: ${v.post_href || '-'}\n`;
+  txt += `磁力: ${v.magnet ? v.magnet.slice(0, 70) + '...' : '无'}\n`;
+  txt += `javdb: ${v.javdb_title || '-'}\n评分: ${v.score}分/${v.votes}人\n`;
+  txt += `演员目录: ${v.dir_name || '无'} ${v.dir_note || ''}\n`;
+  txt += `离线: ${v.offline_status || '-'} ${v.offline_detail || ''}\n`;
+  txt += `判重: ${v.dup_detail || '无'}`;
+  alert(txt);
+}
+
+document.getElementById('btnQuery').addEventListener('click', loadVideos);
+
+// URL 参数: ?id=N 直接展开日志
+const params = new URLSearchParams(location.search);
+if (params.get('id')) setTimeout(() => showLog(parseInt(params.get('id'))), 500);
+
+loadRunsAll();
+loadVideos();
+setInterval(loadRunsAll, 20000);
+setActiveNav();
+</script>
+</body>
+</html>

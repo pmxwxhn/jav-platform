@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>报告 - 115影视资源自动管理平台</title>
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="logo">🎬 115影视资源自动管理平台</div>
+  <nav>
+    <a href="index.html">仪表盘</a>
+    <a href="config.html">配置</a>
+    <a href="tasks.html">任务</a>
+    <a href="reports.html" class="active">报告</a>
+  </nav>
+</div>
+<div class="main">
+  <div class="card">
+    <h2>历史报告 <span id="count" style="font-size:13px;color:#7a8a9a"></span></h2>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <input type="text" id="fDate" placeholder="按日期筛选 YYYY-MM-DD" style="padding:8px 12px;border:1px solid #d0dbe6;border-radius:8px">
+      <select id="fBoard" style="padding:8px 12px;border:1px solid #d0dbe6;border-radius:8px">
+        <option value="">全部板块</option>
+        <option value="高清中文字幕">高清中文字幕</option>
+        <option value="亚洲无码原创">亚洲无码原创</option>
+      </select>
+      <button class="btn gray" id="btnFilter">筛选</button>
+    </div>
+    <div id="reportList"></div>
+  </div>
+</div>
+
+<script src="/assets/app.js"></script>
+<script>
+async function load() {
+  const dateFilter = document.getElementById('fDate').value.trim();
+  const boardFilter = document.getElementById('fBoard').value;
+  let reports = await api('/api/reports');
+  if (dateFilter) reports = reports.filter(r => r.date === dateFilter);
+  if (boardFilter) reports = reports.filter(r => r.board === boardFilter);
+  document.getElementById('count').textContent = `(共 ${reports.length} 份)`;
+  const el = document.getElementById('reportList');
+  el.innerHTML = reports.map(r => `
+    <div class="report-item">
+      <div>
+        <b>${r.date}</b> · <span class="badge blue">${r.board}</span>
+        <div style="font-size:12px;color:#7a8a9a;margin-top:4px">${r.file}</div>
+      </div>
+      <a class="btn" href="${r.relPath}" target="_blank">打开报告</a>
+    </div>`).join('') || '<div style="text-align:center;color:#7a8a9a;padding:20px">暂无报告</div>';
+}
+
+document.getElementById('btnFilter').addEventListener('click', load);
+load();
+setActiveNav();
+</script>
+</body>
+</html>

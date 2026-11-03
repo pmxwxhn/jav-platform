@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>配置 - 115影视资源自动管理平台</title>
+<link rel="stylesheet" href="/assets/style.css">
+<style>
+.rule-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; padding:10px; background:#f7fafc; border:1px solid #e6edf4; border-radius:8px; }
+.rule-row label { font-size:13px; color:#3a4a5a; }
+.rule-row input { width:70px; padding:6px 8px; border:1px solid #d0dbe6; border-radius:6px; }
+.rule-del { background:none; border:none; color:#A32D2D; font-size:16px; cursor:pointer; }
+.add-rule { margin-top:6px; }
+.time-select { padding:8px 12px; border:1px solid #d0dbe6; border-radius:8px; font-size:14px; min-width:120px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo">🎬 115影视资源自动管理平台</div>
+  <nav>
+    <a href="index.html">仪表盘</a>
+    <a href="config.html" class="active">配置</a>
+    <a href="tasks.html">任务</a>
+    <a href="reports.html">报告</a>
+  </nav>
+</div>
+<div class="main">
+  <div class="msg" id="msg"></div>
+
+  <div class="card">
+    <h2>板块配置</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>高清中文字幕 (fid=103)</label>
+        <select id="b103_enabled">
+          <option value="true">启用</option>
+          <option value="false">停用</option>
+        </select>
+        <div class="hint">判重标记: 中文字幕(-C/.chs)</div>
+      </div>
+      <div class="form-group">
+        <label>亚洲无码原创 (fid=36)</label>
+        <select id="b36_enabled">
+          <option value="true">启用</option>
+          <option value="false">停用</option>
+        </select>
+        <div class="hint">判重标记: 破解(-U) · 忽略FC2PPV</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>103 抓取日期范围(含)</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="date" id="b103_start">
+          <span>至</span>
+          <input type="date" id="b103_end">
+        </div>
+        <div class="hint">留空=自动(昨天); 指定开始/结束可一次抓多天</div>
+      </div>
+      <div class="form-group">
+        <label>36 抓取日期范围(含)</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="date" id="b36_start">
+          <span>至</span>
+          <input type="date" id="b36_end">
+        </div>
+        <div class="hint">留空=自动(昨天)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>筛选规则(任一满足即通过,可增删)</h2>
+    <div id="ruleList"></div>
+    <button class="btn gray add-rule" id="btnAddRule">＋ 添加规则</button>
+    <div class="hint" style="margin-top:8px">「无条件」规则 = 评分超过该值,无论人数多少都通过(如 4.5)</div>
+  </div>
+
+  <div class="card">
+    <h2>离线行为</h2>
+    <div class="checkbox-line"><input type="checkbox" id="o_actressSearch"><label for="o_actressSearch">演员目录三级判断(帖子名→javdb名→汉字前缀)</label></div>
+    <div class="checkbox-line"><input type="checkbox" id="o_simplified"><label for="o_simplified">繁体转简体搜索(115目录多为简体, 推荐开启)</label></div>
+    <div class="checkbox-line"><input type="checkbox" id="o_deleteDup"><label for="o_deleteDup">重复文件自动删除 <span style="color:#A32D2D">(风险: 自动删除不可逆, 建议保持关闭仅提示)</span></label></div>
+    <div class="checkbox-line"><input type="checkbox" id="o_verifyCloud"><label for="o_verifyCloud">用云下载页面验证任务(推荐, 替代网盘搜索)</label></div>
+    <div class="form-group">
+      <label>提交失败重试次数</label>
+      <input type="number" id="o_retry" min="0" max="5" style="width:120px">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>报告</h2>
+    <div class="checkbox-line"><input type="checkbox" id="r_comments"><label for="r_comments">报告包含 javdb 全部评论</label></div>
+    <div class="checkbox-line"><input type="checkbox" id="r_charts"><label for="r_charts">报告包含评分图表</label></div>
+  </div>
+
+  <div class="card">
+    <h2>定时调度</h2>
+    <div class="checkbox-line"><input type="checkbox" id="s_enabled"><label for="s_enabled">启用自动调度</label></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>每天运行时间(最小粒度半小时)</label>
+        <select id="s_time" class="time-select"></select>
+      </div>
+      <div class="form-group">
+        <label>调度方式</label>
+        <select id="s_mode">
+          <option value="builtin">内置调度(常驻服务自动触发)</option>
+          <option value="taskplanner">Windows 计划任务(需注册)</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn gray" id="btnRegTask">注册 Windows 计划任务</button>
+      <button class="btn gray" id="btnUnregTask">删除计划任务</button>
+      <span id="schedStatus" style="align-self:center;color:#7a8a9a;font-size:13px"></span>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:12px;margin-bottom:40px">
+    <button class="btn" id="btnSave">💾 保存配置</button>
+    <button class="btn red" id="btnReset">恢复默认配置</button>
+  </div>
+</div>
+
+<script src="/assets/app.js"></script>
+<script>
+let cfg = null;
+
+// 生成半小时粒度时间下拉框
+function fillTimeSelect(selected) {
+  const sel = document.getElementById('s_time');
+  sel.innerHTML = '';
+  for (let h = 0; h < 24; h++) {
+    for (const m of [0, 30]) {
+      const val = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = val;
+      if (val === selected) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+}
+
+// 渲染筛选规则
+function renderRules(rules) {
+  const list = document.getElementById('ruleList');
+  list.innerHTML = '';
+  rules.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'rule-row';
+    row.innerHTML = `
+      <span style="color:#0C447C;font-weight:600">规则${i + 1}</span>
+      <label>评分 &gt;</label>
+      <input type="number" step="0.1" min="0" max="5" class="r-score" value="${r.score}">
+      <label>人数 &gt;</label>
+      <input type="number" min="0" class="r-votes" value="${r.votes || 0}" ${r.force ? 'disabled' : ''}>
+      <label style="margin-left:6px"><input type="checkbox" class="r-force" ${r.force ? 'checked' : ''}> 无条件</label>
+      <button class="rule-del" title="删除此规则">✕</button>
+    `;
+    // 无条件切换: 禁用人数
+    const forceCb = row.querySelector('.r-force');
+    const votesInput = row.querySelector('.r-votes');
+    forceCb.addEventListener('change', () => { votesInput.disabled = forceCb.checked; });
+    row.querySelector('.rule-del').addEventListener('click', () => {
+      rules.splice(i, 1);
+      renderRules(rules);
+    });
+    list.appendChild(row);
+  });
+}
+
+async function load() {
+  cfg = await api('/api/config');
+  // 板块
+  document.getElementById('b103_enabled').value = String(cfg.boards[103].enabled);
+  document.getElementById('b36_enabled').value = String(cfg.boards[36].enabled);
+  document.getElementById('b103_start').value = cfg.boards[103].dateStart || '';
+  document.getElementById('b103_end').value = cfg.boards[103].dateEnd || '';
+  document.getElementById('b36_start').value = cfg.boards[36].dateStart || '';
+  document.getElementById('b36_end').value = cfg.boards[36].dateEnd || '';
+  // 规则
+  const rules = cfg.filter.rules && cfg.filter.rules.length ? cfg.filter.rules : [
+    { id: 'r1', score: 4.0, votes: 200, force: false },
+    { id: 'r2', score: 4.2, votes: 100, force: false },
+    { id: 'r3', score: 4.5, votes: 0, force: true },
+  ];
+  renderRules(rules);
+  // 离线
+  document.getElementById('o_actressSearch').checked = cfg.offline.actressSearch;
+  document.getElementById('o_simplified').checked = cfg.offline.simplified;
+  document.getElementById('o_deleteDup').checked = cfg.offline.deleteDuplicate;
+  document.getElementById('o_verifyCloud').checked = cfg.offline.verifyViaCloud;
+  document.getElementById('o_retry').value = cfg.offline.retryTimes;
+  // 报告
+  document.getElementById('r_comments').checked = cfg.report.includeComments;
+  document.getElementById('r_charts').checked = cfg.report.includeCharts;
+  // 调度
+  document.getElementById('s_enabled').checked = cfg.schedule.enabled;
+  fillTimeSelect(cfg.schedule.time || '08:00');
+  document.getElementById('s_mode').value = cfg.schedule.mode || 'builtin';
+  const sc = await api('/api/schedule');
+  document.getElementById('schedStatus').textContent = sc.builtinActive ? '● 内置调度运行中' : '○ 内置调度未运行';
+}
+
+function collect() {
+  // 收集规则
+  const ruleRows = [...document.querySelectorAll('#ruleList .rule-row')];
+  const rules = ruleRows.map((row, i) => ({
+    id: 'r' + (i + 1),
+    score: parseFloat(row.querySelector('.r-score').value) || 0,
+    votes: parseInt(row.querySelector('.r-votes').value) || 0,
+    force: row.querySelector('.r-force').checked,
+  }));
+  if (!rules.length) rules.push({ id: 'r1', score: 5, votes: 0, force: true }); // 防空
+
+  return {
+    boards: {
+      103: {
+        name: '高清中文字幕',
+        enabled: document.getElementById('b103_enabled').value === 'true',
+        dateStart: document.getElementById('b103_start').value || null,
+        dateEnd: document.getElementById('b103_end').value || null,
+        skipEuro: true, filter: 'sub',
+      },
+      36: {
+        name: '亚洲无码原创',
+        enabled: document.getElementById('b36_enabled').value === 'true',
+        dateStart: document.getElementById('b36_start').value || null,
+        dateEnd: document.getElementById('b36_end').value || null,
+        skipFC2: true, filter: 'uncensor',
+      },
+    },
+    filter: { rules, relatedScore: 4.0, relatedVotes: 300 },
+    offline: {
+      actressSearch: document.getElementById('o_actressSearch').checked,
+      simplified: document.getElementById('o_simplified').checked,
+      deleteDuplicate: document.getElementById('o_deleteDup').checked,
+      verifyViaCloud: document.getElementById('o_verifyCloud').checked,
+      retryTimes: parseInt(document.getElementById('o_retry').value) || 2,
+    },
+    report: {
+      includeComments: document.getElementById('r_comments').checked,
+      includeCharts: document.getElementById('r_charts').checked,
+    },
+    schedule: {
+      enabled: document.getElementById('s_enabled').checked,
+      time: document.getElementById('s_time').value,
+      mode: document.getElementById('s_mode').value,
+    },
+  };
+}
+
+document.getElementById('btnAddRule').addEventListener('click', () => {
+  const rules = [...document.querySelectorAll('#ruleList .rule-row')].map((row, i) => ({
+    id: 'r' + (i + 1),
+    score: parseFloat(row.querySelector('.r-score').value) || 0,
+    votes: parseInt(row.querySelector('.r-votes').value) || 0,
+    force: row.querySelector('.r-force').checked,
+  }));
+  rules.push({ id: 'r' + (rules.length + 1), score: 4.0, votes: 100, force: false });
+  renderRules(rules);
+});
+
+document.getElementById('btnSave').addEventListener('click', async () => {
+  const r = await api('/api/config', 'POST', collect());
+  if (r.ok) {
+    showMsg(document.getElementById('msg'), '✅ 配置已保存', 'ok');
+    await api('/api/schedule/restart', 'POST');
+    const sc = await api('/api/schedule');
+    document.getElementById('schedStatus').textContent = sc.builtinActive ? '● 内置调度运行中' : '○ 内置调度未运行';
+  } else {
+    showMsg(document.getElementById('msg'), '保存失败: ' + r.error, 'err');
+  }
+});
+
+document.getElementById('btnReset').addEventListener('click', async () => {
+  if (!confirm('确定恢复默认配置?')) return;
+  await api('/api/config/reset', 'POST');
+  load();
+  showMsg(document.getElementById('msg'), '已恢复默认配置', 'ok');
+});
+
+document.getElementById('btnRegTask').addEventListener('click', async () => {
+  const r = await api('/api/schedule/register', 'POST');
+  showMsg(document.getElementById('msg'), r.message || r.error, r.ok ? 'ok' : 'err');
+});
+
+document.getElementById('btnUnregTask').addEventListener('click', async () => {
+  const r = await api('/api/schedule/unregister', 'POST');
+  showMsg(document.getElementById('msg'), r.message || r.error, r.ok ? 'ok' : 'err');
+});
+
+load();
+setActiveNav();
+</script>
+</body>
+</html>
