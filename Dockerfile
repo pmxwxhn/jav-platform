@@ -27,8 +27,10 @@ RUN pip3 install --break-system-packages --no-cache-dir \
 WORKDIR /app
 
 # 先装依赖，利用层缓存
-COPY src/package.json src/package-lock.json /app/
-RUN npm ci --omit=dev --registry=https://registry.npmmirror.com \
+# 用 npm install 而不是 npm ci：上游 package.json 少声明了依赖（pinyin-pro），
+# package-lock 与 package.json 不同步，npm ci 会直接失败。
+COPY src/package.json /app/
+RUN npm install --omit=dev --registry=https://registry.npmmirror.com \
     && npm cache clean --force
 
 COPY src/ /app/
